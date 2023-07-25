@@ -1,0 +1,8 @@
+beautifulsoup4==4.11.1
+google_api_python_client==2.52.0
+google_auth_oauthlib==0.4.6
+protobuf==4.21.2
+pytube==12.1.0
+requests==2.27.1
+sty==1.0.4
+tabulate==0.8.9
