@@ -317,6 +317,196 @@ def download_brightspace(COURSE_ID):
             else: download_bs_file(a, f'./Downloads/{COURSE_ID}/{title}/', COURSE_ID)
         print_succ(f"Successfully downloaded module \"{i['Title'].rstrip().lstrip()}\"")
 
+    # Download Discussions
+    download_bs_discussions(COURSE_ID)
+
+
+# Function to get all forums for a course
+def get_forums(COURSE_ID):
+    print_info("Getting Forums...")
+    r = requests.get(
+        f"{BASE_URL}/d2l/api/le/1.51/{COURSE_ID}/discussions/forums/", cookies=COOKIES
+    )
+    if r.status_code == 200:
+        return r.json()
+    else:
+        print_warn(f"Failed to get forums: {r.status_code}")
+        return []
+
+
+# Function to get all topics for a forum
+def get_topics(COURSE_ID, forum_id):
+    print_info(f"Getting Topics for Forum {forum_id}...")
+    r = requests.get(
+        f"{BASE_URL}/d2l/api/le/1.51/{COURSE_ID}/discussions/forums/{forum_id}/topics/",
+        cookies=COOKIES,
+    )
+    if r.status_code == 200:
+        return r.json()
+    else:
+        print_warn(f"Failed to get topics for forum {forum_id}: {r.status_code}")
+        return []
+
+
+# Function to get all posts for a topic (handling pagination)
+def get_posts(COURSE_ID, forum_id, topic_id):
+    print_info(f"Getting Posts for Topic {topic_id}...")
+    all_posts = []
+    page = 1
+    while True:
+        r = requests.get(f"{BASE_URL}/d2l/api/le/1.51/{COURSE_ID}/discussions/forums/{forum_id}/topics/{topic_id}/posts/?pageNumber={page}&pageSize=1000", cookies=COOKIES)
+        if r.status_code == 200:
+            posts = r.json()
+            if not posts:
+                break
+            all_posts.extend(posts)
+            page += 1
+        else:
+            print_warn(
+                f"Failed to get posts for topic {topic_id} (page {page}): {r.status_code}"
+            )
+            break
+    return all_posts
+
+
+# Function to download attachments for a post
+def download_post_attachments(post, path):
+    if "Attachments" in post:
+        for attachment in post["Attachments"]:
+            # Try to handle if it has a Url.
+            if "Url" in attachment:
+                url_ = attachment["Url"]
+                title = attachment["FileName"]
+                for c in BANNED_CHARS:
+                    title = title.replace(c, "")
+
+                if not os.path.exists(path):
+                    os.makedirs(path)
+
+                if (not os.path.isfile(f"{path}/{title}")) or FORCE:
+                    print(f"Downloading attachment: {title}")
+                    r1 = requests.get(f"{BASE_URL}{url_}", cookies=COOKIES)
+                    try:
+                        with open(f"{path}/{title}", "wb") as f:
+                            f.write(r1.content)
+                    except OSError:
+                        print_warn(f"Failed to save attachment: {title}")
+            else:
+                # If we can't find a URL, dump info
+                if not os.path.exists(path):
+                    os.makedirs(path)
+                with open(f"{path}/attachment_info.json", "a") as f:
+                    json.dump(attachment, f)
+                    f.write("\n")
+
+
+# Recursive function to process posts
+def process_post_recursive(
+    post, parent_path, all_posts_map, COURSE_ID, forum_id, topic_id
+):
+    post_id = post["PostId"]
+    subject = post.get("Subject", "No Subject").lstrip().rstrip()
+    for c in BANNED_CHARS:
+        subject = subject.replace(c, "")
+
+    # Limit folder name length to avoid OS issues
+    folder_name = f"{post_id}_{subject}"[:100]
+    post_path = f"{parent_path}{folder_name}/"
+
+    if not os.path.exists(post_path):
+        os.makedirs(post_path)
+
+    # Save post content
+    with open(f"{post_path}post.json", "w") as f:
+        json.dump(post, f, indent=4)
+
+    # Create index.html for readable content
+    if "Message" in post and "Html" in post["Message"]:
+        html_content = f"<h1>{post.get('Subject', '')}</h1><p><b>Author:</b> {post.get('PostingUserDisplayName', 'Unknown')}</p><p><b>Date:</b> {post.get('DatePosted', '')}</p><hr>{post['Message']['Html']}"
+        with open(f"{post_path}index.html", "w") as f:
+            f.write(html_content)
+
+    # Download attachments
+    # Check if we need to fetch the individual post for attachments if missing but count > 0
+    if post.get("AttachmentCount", 0) > 0 and "Attachments" not in post:
+        r_p = requests.get(
+            f"{BASE_URL}/d2l/api/le/1.51/{COURSE_ID}/discussions/forums/{forum_id}/topics/{topic_id}/posts/{post_id}",
+            cookies=COOKIES,
+        )
+        if r_p.status_code == 200:
+            post = (
+                r_p.json()
+            )  # Update post object with full details including attachments
+
+    if "Attachments" in post:
+        download_post_attachments(post, f"{post_path}Attachments/")
+
+    # Process replies
+    if "ReplyPostIds" in post:
+        for reply_id in post["ReplyPostIds"]:
+            if reply_id in all_posts_map:
+                process_post_recursive(
+                    all_posts_map[reply_id],
+                    post_path,
+                    all_posts_map,
+                    COURSE_ID,
+                    forum_id,
+                    topic_id,
+                )
+
+
+# Main function to download discussions
+def download_bs_discussions(COURSE_ID):
+    print_em("Downloading Discussions...")
+    forums = get_forums(COURSE_ID)
+
+    base_path = f"./Downloads/{COURSE_ID}/Discussions/"
+    if not os.path.exists(base_path):
+        os.makedirs(base_path)
+
+    for forum in forums:
+        forum_name = forum["Name"].lstrip().rstrip()
+        for c in BANNED_CHARS:
+            forum_name = forum_name.replace(c, "")
+
+        forum_path = f"{base_path}{forum_name}/"
+        if not os.path.exists(forum_path):
+            os.makedirs(forum_path)
+
+        with open(f"{forum_path}info.json", "w") as f:
+            json.dump(forum, f, indent=4)
+
+        topics = get_topics(COURSE_ID, forum["ForumId"])
+        for topic in topics:
+            topic_name = topic["Name"].lstrip().rstrip()
+            for c in BANNED_CHARS:
+                topic_name = topic_name.replace(c, "")
+
+            topic_path = f"{forum_path}{topic_name}/"
+            if not os.path.exists(topic_path):
+                os.makedirs(topic_path)
+
+            with open(f"{topic_path}info.json", "w") as f:
+                json.dump(topic, f, indent=4)
+
+            posts = get_posts(COURSE_ID, forum["ForumId"], topic["TopicId"])
+
+            # Create a map for easy lookup
+            all_posts_map = {p["PostId"]: p for p in posts}
+
+            # Identify root posts (ParentPostId is null or not in the list of posts we fetched)
+            root_posts = [p for p in posts if not p.get("ParentPostId")]
+
+            for root_post in root_posts:
+                process_post_recursive(
+                    root_post,
+                    topic_path,
+                    all_posts_map,
+                    COURSE_ID,
+                    forum["ForumId"],
+                    topic["TopicId"],
+                        )
+
 
 # Function to download google classroom
 def download_classroom(CLASS_ID):
