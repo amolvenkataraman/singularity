@@ -1,16 +1,16 @@
 <!-- header:start -->
 <div align="center">
 
-<img alt="Singularity: Back up entire D2L Brightspace and Google Classroom courses to your computer." src=".github/assets/banner.svg" width="100%">
+<img alt="Singularity: Back up entire D2L Brightspace and Google Classroom courses to your computer." src="https://raw.githubusercontent.com/amolvenkataraman/singularity/master/.github/assets/banner.svg" width="100%">
 
 ![python: 3](https://img.shields.io/badge/python-3-0f6f68?labelColor=15181c&color=0f6f68)
-[![licence: MIT](https://img.shields.io/badge/licence-MIT-0f6f68?labelColor=15181c&color=0f6f68)](LICENSE)
+[![licence: MIT](https://img.shields.io/badge/licence-MIT-0f6f68?labelColor=15181c&color=0f6f68)](https://github.com/amolvenkataraman/singularity/blob/master/LICENSE)
 
 [Why](#why-does-it-exist) · [What it does](#what-does-it-do) · [How to run it](#how-to-run-it) · [Arguments](#command-line-arguments)
 
 </div>
 
-<a href="https://haiscale.amolven.com/H/"><img alt="HAI Scale H, Fully human. Written entirely by hand. No AI tools were used at any stage. Unofficial and not affiliated with D2L or Google. Use it only on courses you can access. Provided as is, with no warranty." src=".github/assets/hai.svg" width="100%"></a>
+<a href="https://haiscale.amolven.com/H/"><img alt="HAI Scale H, Fully human. Written entirely by hand. No AI tools were used at any stage. Unofficial and not affiliated with D2L or Google. Use it only on courses you can access. Provided as is, with no warranty." src="https://raw.githubusercontent.com/amolvenkataraman/singularity/master/.github/assets/hai.svg" width="100%"></a>
 <!-- header:end -->
 
 Singularity is a command-line script written in Python that can download content, announcements, and more from Google Classroom or D2L Brightspace to a local directory in standardized file formats.
